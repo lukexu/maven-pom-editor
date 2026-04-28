@@ -1,27 +1,28 @@
 # Maven POM Editor
 
-[![Version](https://img.shields.io/badge/version-0.0.2-blue.svg)](https://marketplace.visualstudio.com/items?itemName=Bokix.maven-pom-editor)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=Bokix.maven-pom-editor)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 一个 VS Code 扩展，专为 Maven 项目的 POM 文件提供可视化编辑和依赖管理功能。通过直观的界面查看依赖层次结构、快速排除冲突依赖，让 Maven 依赖管理变得简单高效。
 
 ## ✨ 功能特性
 
-### 🎨 可视化编辑器
-- **原始 POM 编辑器**: 基于 Monaco Editor 的 XML 编辑器，支持语法高亮、代码折叠、自动完成
-- **Effective POM 查看**: 查看 Maven 解析后的完整配置，理解继承和属性替换的最终结果
-- **实时保存**: 编辑内容自动同步到文件系统，无需手动保存
-
 ### 🔍 依赖管理
 - **依赖层次可视化**: 树形展示项目的所有依赖关系及其传递依赖
 - **依赖过滤**: 快速搜索和筛选特定的依赖项，支持 groupId、artifactId 和 version 搜索
-- **冲突检测**: 自动识别并高亮显示版本冲突的依赖项
-- **快速排除**: 通过右键菜单快速添加 exclusion 配置，解决依赖冲突
+- **冲突检测**: 自动识别并标记版本冲突、重复和循环依赖
+- **左右联动**: 点击依赖树节点自动定位到已解析依赖列表，反之亦然
+
+### 🎨 POM 辅助视图
+- **Effective POM 查看**: 查看 Maven 解析后的完整配置，理解继承和属性替换的最终结果
+- **编辑器集成**: 在 VS Code 原生编辑器中编辑 POM，保留所有语言功能和扩展支持
+- **右键定位**: 在依赖视图中右键点击依赖，可直接在主编辑器中定位到对应 XML 节点
 
 ### 🚀 用户体验
-- **自定义编辑器**: 为 `pom.xml` 文件提供专用的编辑界面
-- **选项卡切换**: 在"原始 POM"、"Effective POM"和"依赖树"视图之间无缝切换
+- **工具栏按钮**: 打开 `pom.xml` 后，点击编辑器右上角按钮即可打开辅助视图
+- **选项卡切换**: 在 "Effective POM" 和 "Dependency Hierarchy" 视图之间无缝切换
 - **响应式界面**: 自适应布局，支持不同窗口大小
+- **智能缓存**: Maven 命令结果缓存，避免重复解析，支持手动刷新
 
 ## 📸 功能展示
 
@@ -43,40 +44,34 @@
 
 ### 从 VSIX 文件安装
 ```bash
-code --install-extension maven-pom-editor-0.0.1.vsix
+code --install-extension maven-pom-editor-0.1.0.vsix
 ```
 
 ## 🎯 使用方法
 
-### 方法 1：右键菜单
+### 打开 POM 辅助视图
 1. 在项目中打开任意 `pom.xml` 文件
-2. 右键点击编辑器标签
-3. 选择 "使用...重新打开编辑器" (Reopen Editor With...)
-4. 选择 "Maven POM Editor"
-
-### 方法 2：默认编辑器
-1. 右键点击文件浏览器中的 `pom.xml` 文件
-2. 选择 "打开方式..." (Open With...)
-3. 选择 "Maven POM Editor"
-4. （可选）勾选 "配置默认编辑器..." 将其设为默认
+2. 点击编辑器右上角的 **"Open Maven POM View"** 按钮（方块图标）
+3. 或使用编辑器右键菜单中的 **"Open Maven POM View"**
+4. 右侧会打开辅助面板，包含 "Effective POM" 和 "Dependency Hierarchy" 两个标签页
 
 ### 功能使用
 
 #### 查看依赖树
-1. 打开 POM 文件后，点击 "依赖树" 选项卡
+1. 打开 POM 辅助视图后，点击 "Dependency Hierarchy" 选项卡
 2. 展开依赖节点查看传递依赖
 3. 使用顶部搜索框过滤特定依赖
+4. 点击左栏树节点，右栏会自动高亮对应依赖；点击右栏依赖，左栏会过滤显示相关路径
 
-#### 排除依赖
-1. 在依赖树中找到要排除的传递依赖
-2. 右键点击该依赖
-3. 选择 "排除此依赖" (Exclude Dependency)
-4. 系统会自动在原始 POM 中添加 exclusion 配置
+#### 在编辑器中定位依赖
+1. 在依赖树或已解析依赖列表中右键点击某个依赖
+2. 选择 "在编辑器中定位"
+3. 主编辑器会自动滚动并定位到该依赖在 `pom.xml` 中的位置
 
 #### 查看 Effective POM
 1. 点击 "Effective POM" 选项卡
 2. 查看 Maven 解析后的完整配置
-3. 使用搜索功能快速定位特定配置
+3. 支持语法高亮和代码折叠
 
 ## 📋 系统要求
 

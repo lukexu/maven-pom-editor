@@ -338,11 +338,6 @@ body {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.tree-node.search-match>.node-content {
-    background-color: var(--vscode-editor-findMatchHighlightBackground);
-    border-left: 3px solid var(--vscode-editor-findMatchBorder);
-}
-
 .tree-node.selected>.node-content {
     background-color: rgba(46, 204, 113, 0.25);
     color: var(--vscode-editor-foreground);
@@ -617,11 +612,6 @@ body {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.resolved-item.search-match {
-    background-color: var(--vscode-editor-findMatchHighlightBackground);
-    border-left: 3px solid var(--vscode-editor-findMatchBorder);
-}
-
 .resolved-item.selected {
     background-color: rgba(46, 204, 113, 0.25);
     color: var(--vscode-editor-foreground);
@@ -707,4 +697,39 @@ body {
     font-size: 14px;
     padding: 40px;
     text-align: center;
+}
+
+/* Context Menu */
+.context-menu {
+    position: absolute;
+    z-index: 1000;
+    background-color: var(--vscode-menu-background);
+    color: var(--vscode-menu-foreground);
+    border: 1px solid var(--vscode-menu-border);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+    min-width: 160px;
+    display: none;
+    font-size: 13px;
+}
+
+.context-menu-item {
+    padding: 6px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.1s;
+}
+
+.context-menu-item:hover {
+    background-color: var(--vscode-menu-selectionBackground);
+    color: var(--vscode-menu-selectionForeground);
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: var(--vscode-menu-separatorBackground);
+    margin: 4px 0;
 }

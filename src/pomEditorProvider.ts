@@ -1,38 +1,67 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { MavenUtils } from './mavenUtils';
 import { CacheManager } from './cacheManager';
 
-export class PomEditorProvider implements vscode.CustomTextEditorProvider {
-    
-    // 使用统一的缓存管理器
-    private cacheManager: CacheManager;
+export class PomViewProvider {
 
-    constructor(private readonly context: vscode.ExtensionContext) {
-        this.cacheManager = new CacheManager(context);
+    private panels: Map<string, vscode.WebviewPanel> = new Map();
+
+    constructor(
+        private readonly context: vscode.ExtensionContext,
+        private readonly cacheManager: CacheManager
+    ) { }
+
+    public openPomView(uri: vscode.Uri): void {
+        const pomPath = uri.fsPath;
+        const panelKey = pomPath;
+
+        // 如果已经打开了对应的面板，就显示它
+        const existingPanel = this.panels.get(panelKey);
+        if (existingPanel) {
+            existingPanel.reveal(vscode.ViewColumn.Beside);
+            return;
+        }
+
+        // 读取 POM 文件内容
+        let pomContent = '';
+        try {
+            pomContent = fs.readFileSync(pomPath, 'utf-8');
+        } catch (error) {
+            vscode.window.showErrorMessage(`无法读取 POM 文件: ${pomPath}`);
+            return;
+        }
+
+        // 创建 WebviewPanel
+        const panel = vscode.window.createWebviewPanel(
+            'mavenPomEditor.view',
+            `Maven POM: ${path.basename(path.dirname(pomPath))}`,
+            vscode.ViewColumn.Beside,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    vscode.Uri.joinPath(this.context.extensionUri, 'media')
+                ]
+            }
+        );
+
+        this.panels.set(panelKey, panel);
+
+        // 面板关闭时清理
+        panel.onDidDispose(() => {
+            this.panels.delete(panelKey);
+        });
+
+        // 设置 Webview HTML
+        panel.webview.html = this.getHtmlForWebview(panel.webview, pomContent);
+
+        // 监听消息
+        this.setupWebviewMessageListener(panel, uri);
     }
 
-    public async resolveCustomTextEditor(
-        document: vscode.TextDocument,
-        webviewPanel: vscode.WebviewPanel,
-        _token: vscode.CancellationToken
-    ): Promise<void> {
-        // Setup initial content for the webview
-        webviewPanel.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [
-                vscode.Uri.joinPath(this.context.extensionUri, 'media')
-            ]
-        };
-
-        webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview, document);
-
-        // Hook up event listeners
-        this.setupWebviewMessageListener(webviewPanel, document);
-        this.setupDocumentChangeListener(document, webviewPanel);
-    }
-
-    private getHtmlForWebview(webview: vscode.Webview, document: vscode.TextDocument): string {
+    private getHtmlForWebview(webview: vscode.Webview, pomContent: string): string {
         // Get the CSS and JS URIs
         const styleUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.context.extensionUri, 'media', 'style.css')
@@ -49,8 +78,6 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
         // Use a nonce to only allow specific scripts to run
         const nonce = getNonce();
 
-        const pomContent = document.getText();
-
         // Detect current theme
         const theme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? 'vscode-dark' : 'vscode-light';
 
@@ -61,29 +88,28 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' https://cdn.jsdelivr.net; font-src ${webview.cspSource} https://cdn.jsdelivr.net; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${styleUri}" rel="stylesheet">
-    <title>Maven POM Editor</title>
+    <title>Maven POM View</title>
 </head>
 <body class="${theme}">
     <div class="editor-container">
         <div class="tab-bar">
-            <button class="tab-button active" data-tab="raw-pom">Raw POM</button>
-            <button class="tab-button" data-tab="effective-pom">Effective POM</button>
+            <button class="tab-button active" data-tab="effective-pom">Effective POM</button>
             <button class="tab-button" data-tab="dependency-hierarchy">Dependency Hierarchy</button>
         </div>
-        
+
         <div class="tab-content-container">
-            <div id="raw-pom" class="tab-content active">
-                <div id="monaco-editor-container"></div>
+            <div id="effective-pom" class="tab-content active">
             </div>
-            
-            <div id="effective-pom" class="tab-content">
-            </div>
-            
+
             <div id="dependency-hierarchy" class="tab-content">
             </div>
         </div>
     </div>
-    
+
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" id="context-menu-locate">在编辑器中定位</div>
+    </div>
+
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
         const initialContent = ${JSON.stringify(pomContent)};
@@ -95,26 +121,26 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     private setupWebviewMessageListener(
-        webviewPanel: vscode.WebviewPanel,
-        document: vscode.TextDocument
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri
     ): void {
-        webviewPanel.webview.onDidReceiveMessage(
+        panel.webview.onDidReceiveMessage(
             async (message) => {
                 switch (message.type) {
-                    case 'update':
-                        await this.updateTextDocument(document, message.content);
-                        break;
                     case 'log':
                         console.log('Webview:', message.content);
                         break;
                     case 'getEffectivePom':
-                        await this.handleGetEffectivePom(webviewPanel, document, message.forceRefresh);
+                        await this.handleGetEffectivePom(panel, uri, message.forceRefresh);
                         break;
                     case 'getDependencyTree':
-                        await this.handleGetDependencyTree(webviewPanel, document, message.forceRefresh);
+                        await this.handleGetDependencyTree(panel, uri, message.forceRefresh);
                         break;
                     case 'getResolvedDependencies':
-                        await this.handleGetResolvedDependencies(webviewPanel, document, message.forceRefresh);
+                        await this.handleGetResolvedDependencies(panel, uri, message.forceRefresh);
+                        break;
+                    case 'locateInEditor':
+                        await this.handleLocateInEditor(uri, message.groupId, message.artifactId);
                         break;
                 }
             }
@@ -122,180 +148,119 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     private async handleGetEffectivePom(
-        webviewPanel: vscode.WebviewPanel,
-        document: vscode.TextDocument,
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri,
         forceRefresh: boolean = false
     ): Promise<void> {
         await this.executeWithProgress(
-            webviewPanel,
-            document,
+            panel,
+            uri,
             'effectivePom',
             forceRefresh,
             async (pomPath: string) => {
-                // 步骤 1: 检查 Maven 环境 (10%)
-                await this.reportProgress(webviewPanel, 'effectivePom', 1, '检查 Maven 环境');
+                await this.reportProgress(panel, 'effectivePom', 1, '检查 Maven 环境');
                 const mavenAvailable = await MavenUtils.isMavenAvailable();
                 if (!mavenAvailable) {
                     throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
                 }
 
-                // 步骤 2: 解析依赖关系 (30%)
-                await this.reportProgress(webviewPanel, 'effectivePom', 2, '解析依赖关系');
-                
-                // 步骤 3: 生成 Effective POM (60%)
-                await this.reportProgress(webviewPanel, 'effectivePom', 3, '生成 Effective POM');
+                await this.reportProgress(panel, 'effectivePom', 2, '解析依赖关系');
+                await this.reportProgress(panel, 'effectivePom', 3, '生成 Effective POM');
                 const effectivePom = await MavenUtils.getEffectivePom(pomPath);
 
-                // 步骤 4: 处理结果 (90%)
-                await this.reportProgress(webviewPanel, 'effectivePom', 4, '处理结果');
-                
+                await this.reportProgress(panel, 'effectivePom', 4, '处理结果');
+
                 return effectivePom;
             }
         );
     }
 
     private async handleGetDependencyTree(
-        webviewPanel: vscode.WebviewPanel,
-        document: vscode.TextDocument,
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri,
         forceRefresh: boolean = false
     ): Promise<void> {
         await this.executeWithProgress(
-            webviewPanel,
-            document,
+            panel,
+            uri,
             'dependencyTree',
             forceRefresh,
             async (pomPath: string) => {
-                // 步骤 1: 检查 Maven 环境 (10%)
-                await this.reportProgress(webviewPanel, 'dependencyTree', 1, '检查 Maven 环境');
+                await this.reportProgress(panel, 'dependencyTree', 1, '检查 Maven 环境');
                 const mavenAvailable = await MavenUtils.isMavenAvailable();
                 if (!mavenAvailable) {
                     throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
                 }
 
-                // 步骤 2: 解析依赖关系 (30%)
-                await this.reportProgress(webviewPanel, 'dependencyTree', 2, '解析依赖关系');
-                
-                // 步骤 3: 生成依赖树 (60%)
-                await this.reportProgress(webviewPanel, 'dependencyTree', 3, '生成依赖树');
+                await this.reportProgress(panel, 'dependencyTree', 2, '解析依赖关系');
+                await this.reportProgress(panel, 'dependencyTree', 3, '生成依赖树');
                 const treeText = await MavenUtils.getDependencyTree(pomPath);
 
-                // 步骤 4: 处理结果 (90%)
-                await this.reportProgress(webviewPanel, 'dependencyTree', 4, '处理结果');
+                await this.reportProgress(panel, 'dependencyTree', 4, '处理结果');
                 const treeData = MavenUtils.parseDependencyTree(treeText);
-                
+
                 return treeData;
             }
         );
     }
 
     private async handleGetResolvedDependencies(
-        webviewPanel: vscode.WebviewPanel,
-        document: vscode.TextDocument,
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri,
         forceRefresh: boolean = false
     ): Promise<void> {
         await this.executeWithProgress(
-            webviewPanel,
-            document,
+            panel,
+            uri,
             'resolvedDependencies',
             forceRefresh,
             async (pomPath: string) => {
-                // 步骤 1: 检查 Maven 环境 (10%)
-                await this.reportProgress(webviewPanel, 'resolvedDependencies', 1, '检查 Maven 环境');
+                await this.reportProgress(panel, 'resolvedDependencies', 1, '检查 Maven 环境');
                 const mavenAvailable = await MavenUtils.isMavenAvailable();
                 if (!mavenAvailable) {
                     throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
                 }
 
-                // 步骤 2: 解析依赖关系 (30%)
-                await this.reportProgress(webviewPanel, 'resolvedDependencies', 2, '解析依赖关系');
-                
-                // 步骤 3: 生成依赖列表 (60%)
-                await this.reportProgress(webviewPanel, 'resolvedDependencies', 3, '生成依赖列表');
+                await this.reportProgress(panel, 'resolvedDependencies', 2, '解析依赖关系');
+                await this.reportProgress(panel, 'resolvedDependencies', 3, '生成依赖列表');
                 const listText = await MavenUtils.getResolvedDependencies(pomPath);
 
-                // 步骤 4: 处理结果 (90%)
-                await this.reportProgress(webviewPanel, 'resolvedDependencies', 4, '处理结果');
+                await this.reportProgress(panel, 'resolvedDependencies', 4, '处理结果');
                 const dependencies = MavenUtils.parseResolvedDependencies(listText);
-                
+
                 return dependencies;
             }
         );
     }
 
-    private setupDocumentChangeListener(
-        document: vscode.TextDocument,
-        webviewPanel: vscode.WebviewPanel
-    ): void {
-        const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
-            if (e.document.uri.toString() === document.uri.toString()) {
-                // Document was changed externally, update the webview
-                webviewPanel.webview.postMessage({
-                    type: 'update',
-                    content: document.getText()
-                });
-            }
-        });
-
-        // Clean up when webview is closed
-        webviewPanel.onDidDispose(() => {
-            changeDocumentSubscription.dispose();
-        });
-    }
-
-    private async updateTextDocument(document: vscode.TextDocument, content: string): Promise<void> {
-        const edit = new vscode.WorkspaceEdit();
-        
-        // Replace the entire document
-        edit.replace(
-            document.uri,
-            new vscode.Range(0, 0, document.lineCount, 0),
-            content
-        );
-
-        await vscode.workspace.applyEdit(edit);
-    }
-
-    /**
-     * 执行带进度的操作
-     * @param webviewPanel Webview 面板
-     * @param document 文档
-     * @param cacheKey 缓存键
-     * @param forceRefresh 是否强制刷新
-     * @param executor 执行函数
-     */
     private async executeWithProgress<T>(
-        webviewPanel: vscode.WebviewPanel,
-        document: vscode.TextDocument,
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri,
         cacheKey: string,
         forceRefresh: boolean,
         executor: (pomPath: string) => Promise<T>
     ): Promise<void> {
         const messageType = this.getMessageType(cacheKey);
-        
+
         try {
-            // 显示加载状态
-            this.showLoadingState(webviewPanel, cacheKey, true);
+            this.showLoadingState(panel, cacheKey, true);
 
-            const pomPath = document.uri.fsPath;
+            const pomPath = uri.fsPath;
 
-            // 检查缓存
             const cachedData = await this.cacheManager.get(pomPath, cacheKey, forceRefresh);
             if (cachedData) {
-                console.log(`[PomEditor] 使用缓存的 ${cacheKey} 数据`);
-                this.showCachedResult(webviewPanel, cacheKey, cachedData);
+                console.log(`[PomView] 使用缓存的 ${cacheKey} 数据`);
+                this.showCachedResult(panel, cacheKey, cachedData);
                 return;
             }
 
-            console.log(`[PomEditor] 从 Maven 获取 ${cacheKey}...`);
+            console.log(`[PomView] 从 Maven 获取 ${cacheKey}...`);
 
-            // 执行操作
             const result = await executor(pomPath);
 
-            // 缓存结果
             await this.cacheManager.set(pomPath, cacheKey, result);
 
-            // 发送结果到 webview
-            webviewPanel.webview.postMessage({
+            panel.webview.postMessage({
                 type: `${messageType}Result`,
                 [this.getResultKey(cacheKey)]: result,
                 loading: false,
@@ -303,27 +268,21 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
             });
         } catch (error: any) {
             console.error(`获取 ${cacheKey} 失败:`, error);
-            this.showError(webviewPanel, cacheKey, error.message || `获取 ${cacheKey} 失败`);
+            this.showError(panel, cacheKey, error.message || `获取 ${cacheKey} 失败`);
         }
     }
 
-    /**
-     * 显示加载状态
-     */
-    private showLoadingState(webviewPanel: vscode.WebviewPanel, cacheKey: string, loading: boolean): void {
+    private showLoadingState(panel: vscode.WebviewPanel, cacheKey: string, loading: boolean): void {
         const messageType = this.getMessageType(cacheKey);
-        webviewPanel.webview.postMessage({
+        panel.webview.postMessage({
             type: `${messageType}Loading`,
             loading
         });
     }
 
-    /**
-     * 显示缓存结果
-     */
-    private showCachedResult(webviewPanel: vscode.WebviewPanel, cacheKey: string, data: any): void {
+    private showCachedResult(panel: vscode.WebviewPanel, cacheKey: string, data: any): void {
         const messageType = this.getMessageType(cacheKey);
-        webviewPanel.webview.postMessage({
+        panel.webview.postMessage({
             type: `${messageType}Result`,
             [this.getResultKey(cacheKey)]: data,
             loading: false,
@@ -331,42 +290,32 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
         });
     }
 
-    /**
-     * 显示错误
-     */
-    private showError(webviewPanel: vscode.WebviewPanel, cacheKey: string, error: string): void {
+    private showError(panel: vscode.WebviewPanel, cacheKey: string, error: string): void {
         const messageType = this.getMessageType(cacheKey);
-        webviewPanel.webview.postMessage({
+        panel.webview.postMessage({
             type: `${messageType}Error`,
             error,
             loading: false
         });
     }
 
-    /**
-     * 报告进度
-     */
     private async reportProgress(
-        webviewPanel: vscode.WebviewPanel,
+        panel: vscode.WebviewPanel,
         cacheKey: string,
         step: number,
         message: string
     ): Promise<void> {
         const messageType = this.getMessageType(cacheKey);
-        webviewPanel.webview.postMessage({
+        panel.webview.postMessage({
             type: `${messageType}Progress`,
             step,
             message,
-            progress: step * 25 // 每步25%
+            progress: step * 25
         });
-        
-        // 短暂延迟，让UI有时间更新
+
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    /**
-     * 获取消息类型前缀
-     */
     private getMessageType(cacheKey: string): string {
         switch (cacheKey) {
             case 'effectivePom':
@@ -380,9 +329,6 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
         }
     }
 
-    /**
-     * 获取结果键名
-     */
     private getResultKey(cacheKey: string): string {
         switch (cacheKey) {
             case 'effectivePom':
@@ -394,6 +340,70 @@ export class PomEditorProvider implements vscode.CustomTextEditorProvider {
                 return 'data';
         }
     }
+
+    private async handleLocateInEditor(
+        uri: vscode.Uri,
+        groupId: string,
+        artifactId: string
+    ): Promise<void> {
+        try {
+            // 打开或显示 pom.xml 文件
+            const document = await vscode.workspace.openTextDocument(uri);
+            const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
+
+            const text = document.getText();
+            const groupIdPattern = `<groupId>${this.escapeRegex(groupId)}</groupId>`;
+            const artifactIdPattern = `<artifactId>${this.escapeRegex(artifactId)}</artifactId>`;
+
+            // 查找所有 groupId 匹配位置
+            let bestRange: vscode.Range | undefined;
+            let searchIndex = 0;
+
+            while (true) {
+                const groupIdIndex = text.indexOf(groupIdPattern, searchIndex);
+                if (groupIdIndex === -1) {
+                    break;
+                }
+
+                // 在该 groupId 附近查找 artifactId
+                const startSearch = Math.max(0, groupIdIndex - 500);
+                const endSearch = Math.min(text.length, groupIdIndex + 500);
+                const nearbyText = text.substring(startSearch, endSearch);
+
+                if (nearbyText.includes(artifactIdPattern)) {
+                    // 找到了匹配的 groupId + artifactId 组合
+                    const position = document.positionAt(groupIdIndex);
+                    bestRange = new vscode.Range(position, position);
+                    break;
+                }
+
+                searchIndex = groupIdIndex + 1;
+            }
+
+            // 如果没找到组合，尝试单独查找 artifactId
+            if (!bestRange) {
+                const artifactIdIndex = text.indexOf(artifactIdPattern);
+                if (artifactIdIndex !== -1) {
+                    const position = document.positionAt(artifactIdIndex);
+                    bestRange = new vscode.Range(position, position);
+                }
+            }
+
+            if (bestRange) {
+                editor.revealRange(bestRange, vscode.TextEditorRevealType.InCenter);
+                editor.selection = new vscode.Selection(bestRange.start, bestRange.start);
+            } else {
+                vscode.window.showInformationMessage(`未在 POM 文件中找到依赖: ${groupId}:${artifactId}`);
+            }
+        } catch (error: any) {
+            console.error('定位到编辑器失败:', error);
+            vscode.window.showErrorMessage(`定位失败: ${error.message}`);
+        }
+    }
+
+    private escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
 }
 
 function getNonce(): string {
@@ -404,13 +414,3 @@ function getNonce(): string {
     }
     return text;
 }
-
-function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-

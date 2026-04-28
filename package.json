@@ -2,7 +2,7 @@
   "name": "maven-pom-editor",
   "displayName": "Maven POM Editor",
   "description": "Advanced Maven POM editor with dependency hierarchy visualization",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "publisher": "Bokix",
   "icon": "images/icon.png",
   "engines": {
@@ -37,24 +37,17 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "onCustomEditor:mavenPomEditor.editor",
+    "onCommand:mavenPomEditor.openPomView",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "customEditors": [
-      {
-        "viewType": "mavenPomEditor.editor",
-        "displayName": "Maven POM Editor",
-        "selector": [
-          {
-            "filenamePattern": "pom.xml"
-          }
-        ],
-        "priority": "default"
-      }
-    ],
     "commands": [
+      {
+        "command": "mavenPomEditor.openPomView",
+        "title": "Open Maven POM View",
+        "icon": "$(extensions)"
+      },
       {
         "command": "mavenPomEditor.clearCache",
         "title": "Maven POM Editor: Clear All Cache"
@@ -64,6 +57,22 @@
         "title": "Maven POM Editor: Show Cache Statistics"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mavenPomEditor.openPomView",
+          "when": "resourceFilename == pom.xml",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mavenPomEditor.openPomView",
+          "when": "resourceFilename == pom.xml",
+          "group": "2_workspace@5"
+        }
+      ]
+    },
     "taskDefinitions": [
       {
         "type": "maven",
@@ -92,12 +101,12 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "20.x",
+    "@types/vscode": "^1.80.0",
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
+    "@vscode/vsce": "^2.32.0",
     "eslint": "^8.47.0",
     "typescript": "^5.1.6"
   }
 }
-

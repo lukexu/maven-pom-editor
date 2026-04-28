@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PomEditorProvider } from './pomEditorProvider';
+import { PomViewProvider } from './pomEditorProvider';
 import { CacheManager } from './cacheManager';
 import { MavenTaskProvider } from './mavenTaskProvider';
 
@@ -9,20 +9,26 @@ export function activate(context: vscode.ExtensionContext) {
     // 创建缓存管理器实例
     const cacheManager = new CacheManager(context);
 
-    // Register the custom editor provider
-    const provider = new PomEditorProvider(context);
-    const registration = vscode.window.registerCustomEditorProvider(
-        'mavenPomEditor.editor',
-        provider,
-        {
-            webviewOptions: {
-                retainContextWhenHidden: true
-            },
-            supportsMultipleEditorsPerDocument: false
-        }
-    );
+    // Register the POM view provider
+    const pomViewProvider = new PomViewProvider(context, cacheManager);
 
-    context.subscriptions.push(registration);
+    // Register the open POM view command
+    const openPomViewCommand = vscode.commands.registerCommand('mavenPomEditor.openPomView', () => {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            vscode.window.showWarningMessage('请先打开一个 pom.xml 文件');
+            return;
+        }
+
+        const document = activeEditor.document;
+        if (!document.fileName.endsWith('pom.xml')) {
+            vscode.window.showWarningMessage('当前文件不是 pom.xml');
+            return;
+        }
+
+        pomViewProvider.openPomView(document.uri);
+    });
+    context.subscriptions.push(openPomViewCommand);
 
     // 注册 Maven 任务提供者
     const taskProvider = new MavenTaskProvider();

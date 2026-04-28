@@ -4,12 +4,7 @@
     // Get references to DOM elements
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
-    const editorContainer = document.getElementById('monaco-editor-container');
-    
-    let monacoEditor = null;
     let effectivePomEditor = null;
-    let isUpdatingFromExtension = false;
-    let updateTimeout = null;
     let effectivePomLoaded = false;
     let dependencyTreeLoaded = false;
     let dependencyTreeData = null;
@@ -23,6 +18,7 @@
     let filteredArtifactId = null; // 用于右栏点击后过滤左栏树
     let isProcessingClick = false; // 防止快速连续点击
     let eventListenersAttached = false; // 防止重复绑定事件监听器
+    let contextMenuTarget = null; // 右键菜单当前目标节点信息
     
     // Setup tab switching
     tabButtons.forEach(button => {
@@ -52,11 +48,7 @@
         });
         
         // Handle tab-specific logic
-        if (tabId === 'raw-pom' && monacoEditor) {
-            setTimeout(() => {
-                monacoEditor.layout();
-            }, 0);
-        } else if (tabId === 'effective-pom') {
+        if (tabId === 'effective-pom') {
             // Load effective POM if not already loaded
             if (!effectivePomLoaded) {
                 loadEffectivePom();
@@ -97,71 +89,6 @@
         // Request effective POM from extension
         vscode.postMessage({
             type: 'getEffectivePom'
-        });
-    }
-
-    // Initialize Monaco Editor when it's loaded
-    window.addEventListener('monaco-loaded', () => {
-        initializeMonacoEditor();
-    });
-    
-    function initializeMonacoEditor() {
-        if (!editorContainer) {
-            console.error('Editor container not found');
-            return;
-        }
-        
-        // Detect VSCode theme
-        const isDarkTheme = document.body.classList.contains('vscode-dark') || 
-                           document.body.classList.contains('vscode-high-contrast');
-        
-        monacoEditor = monaco.editor.create(editorContainer, {
-            value: initialContent,
-            language: 'xml',
-            theme: isDarkTheme ? 'vs-dark' : 'vs',
-            automaticLayout: true,
-            minimap: {
-                enabled: true
-            },
-            scrollBeyondLastLine: false,
-            fontSize: 14,
-            tabSize: 4,
-            insertSpaces: true,
-            wordWrap: 'off',
-            lineNumbers: 'on',
-            renderWhitespace: 'selection',
-            folding: true,
-            links: true,
-            colorDecorators: true
-        });
-        
-        // Listen for content changes
-        monacoEditor.onDidChangeModelContent(() => {
-            if (isUpdatingFromExtension) {
-                return;
-            }
-            
-            // Debounce updates to avoid too many messages
-            clearTimeout(updateTimeout);
-            updateTimeout = setTimeout(() => {
-                const content = monacoEditor.getValue();
-                vscode.postMessage({
-                    type: 'update',
-                    content: content
-                });
-            }, 300);
-        });
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (monacoEditor) {
-                monacoEditor.layout();
-            }
-        });
-        
-        vscode.postMessage({
-            type: 'log',
-            content: 'Monaco Editor initialized successfully'
         });
     }
 
@@ -726,9 +653,93 @@
         if (toggleGroupIdBtn) {
             toggleGroupIdBtn.addEventListener('click', () => {
                 showGroupId = !showGroupId;
+                toggleGroupIdBtn.textContent = showGroupId ? '隐藏 GroupId' : '显示 GroupId';
+                toggleGroupIdBtn.title = showGroupId ? '隐藏 GroupId' : '显示 GroupId';
                 updateLeftPanel();
+                updateRightPanel();
             });
         }
+
+        // Context menu for tree nodes and resolved items
+        setupContextMenu(treeView, 'tree');
+        setupContextMenu(resolvedView, 'resolved');
+    }
+
+    function setupContextMenu(container, type) {
+        if (!container) return;
+
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+
+            let targetElement = null;
+            if (type === 'tree') {
+                targetElement = e.target.closest('.tree-node');
+            } else {
+                targetElement = e.target.closest('.resolved-item');
+            }
+
+            if (!targetElement) return;
+
+            const groupId = targetElement.getAttribute('data-group-id');
+            const artifactId = targetElement.getAttribute('data-artifact-id');
+            if (!groupId || !artifactId) return;
+
+            contextMenuTarget = { groupId, artifactId };
+            showContextMenu(e.clientX, e.clientY);
+        });
+    }
+
+    function showContextMenu(x, y) {
+        const menu = document.getElementById('context-menu');
+        if (!menu) return;
+
+        menu.style.display = 'block';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+
+        // Ensure menu stays within viewport
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+        }
+    }
+
+    function hideContextMenu() {
+        const menu = document.getElementById('context-menu');
+        if (menu) {
+            menu.style.display = 'none';
+        }
+        contextMenuTarget = null;
+    }
+
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('context-menu');
+        if (menu && !menu.contains(e.target)) {
+            hideContextMenu();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideContextMenu();
+        }
+    });
+
+    const contextMenuLocate = document.getElementById('context-menu-locate');
+    if (contextMenuLocate) {
+        contextMenuLocate.addEventListener('click', () => {
+            if (contextMenuTarget) {
+                vscode.postMessage({
+                    type: 'locateInEditor',
+                    groupId: contextMenuTarget.groupId,
+                    artifactId: contextMenuTarget.artifactId
+                });
+            }
+            hideContextMenu();
+        });
     }
 
     function updateBothViews() {
@@ -1037,29 +1048,6 @@
         const message = event.data;
         
         switch (message.type) {
-            case 'update':
-                if (monacoEditor) {
-                    isUpdatingFromExtension = true;
-                    
-                    // Save cursor position
-                    const position = monacoEditor.getPosition();
-                    const scrollTop = monacoEditor.getScrollTop();
-                    
-                    // Update content
-                    monacoEditor.setValue(message.content);
-                    
-                    // Restore cursor position and scroll
-                    if (position) {
-                        monacoEditor.setPosition(position);
-                    }
-                    monacoEditor.setScrollTop(scrollTop);
-                    
-                    setTimeout(() => {
-                        isUpdatingFromExtension = false;
-                    }, 100);
-                }
-                break;
-
             case 'effectivePomResult':
                 initializeEffectivePomEditor(message.content);
                 break;
