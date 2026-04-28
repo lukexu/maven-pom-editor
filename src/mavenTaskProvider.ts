@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { MavenUtils } from './mavenUtils';
+import { t } from './i18n';
 
 /**
- * Maven 任务提供者
- * 集成 VS Code 任务系统，提供常用 Maven 命令
+ * Maven Task Provider
+ * Integrates with VS Code task system to provide common Maven commands
  */
 export class MavenTaskProvider implements vscode.TaskProvider {
     static readonly taskType = 'maven';
@@ -59,18 +61,18 @@ export class MavenTaskProvider implements vscode.TaskProvider {
                 continue;
             }
 
-            // 常用 Maven 目标
+            // Common Maven goals
             const goals = [
-                { name: 'clean', description: '清理项目' },
-                { name: 'compile', description: '编译项目' },
-                { name: 'test', description: '运行测试' },
-                { name: 'package', description: '打包项目' },
-                { name: 'install', description: '安装到本地仓库' },
-                { name: 'verify', description: '验证项目' },
-                { name: 'clean install', description: '清理并安装' },
-                { name: 'clean package', description: '清理并打包' },
-                { name: 'dependency:tree', description: '显示依赖树' },
-                { name: 'dependency:list', description: '列出依赖' }
+                { name: 'clean', description: t('task.clean') },
+                { name: 'compile', description: t('task.compile') },
+                { name: 'test', description: t('task.test') },
+                { name: 'package', description: t('task.package') },
+                { name: 'install', description: t('task.install') },
+                { name: 'verify', description: t('task.verify') },
+                { name: 'clean install', description: t('task.cleanInstall') },
+                { name: 'clean package', description: t('task.cleanPackage') },
+                { name: 'dependency:tree', description: t('task.dependencyTree') },
+                { name: 'dependency:list', description: t('task.dependencyList') }
             ];
 
             for (const goal of goals) {
@@ -105,14 +107,22 @@ export class MavenTaskProvider implements vscode.TaskProvider {
 
         // 构建 Maven 命令
         const args = [goal];
+        let cwd: string | undefined;
+
         if (definition.pomFile) {
-            args.push('-f', definition.pomFile);
+            // 检测多模块项目
+            const multiModuleInfo = MavenUtils.getMultiModuleInfo(definition.pomFile);
+            if (multiModuleInfo) {
+                args.push('-pl', `:${multiModuleInfo.moduleName}`, '-am');
+                cwd = multiModuleInfo.root;
+            } else {
+                args.push('-f', definition.pomFile);
+                cwd = path.dirname(definition.pomFile);
+            }
         }
 
         // 创建 Shell 执行配置
-        const execution = new vscode.ShellExecution('mvn', args, {
-            cwd: definition.pomFile ? path.dirname(definition.pomFile) : undefined
-        });
+        const execution = new vscode.ShellExecution('mvn', args, { cwd });
 
         // 创建任务
         const task = new vscode.Task(

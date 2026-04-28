@@ -1,0 +1,7 @@
+{
+  "extension.displayName": "Maven POM Editor",
+  "extension.description": "Advanced Maven POM editor with dependency hierarchy visualization",
+  "command.openPomView.title": "打开 Maven POM 视图",
+  "command.clearCache.title": "Maven POM Editor: 清除所有缓存",
+  "command.showCacheStats.title": "Maven POM Editor: 显示缓存统计信息"
+}

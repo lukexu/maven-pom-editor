@@ -5,11 +5,16 @@
 ### 架构重构
 - **移除 Custom Editor**：不再替换 pom.xml 的默认编辑器，改为通过编辑器标题栏按钮打开辅助视图
 - **保留原生编辑体验**：使用 VS Code 原生 XML 编辑器编辑 POM，完整支持语法高亮、IntelliSense、indent-rainbow 等所有扩展功能
-- **WebviewPanel 侧边面板**：点击按钮后在右侧打开 "Effective POM" 和 "Dependency Hierarchy" 视图
+- **WebviewPanel 侧边面板**：点击按钮后在右侧打开 "Effective POM"、"Dependency Hierarchy" 和 "Resolved Dependencies" 视图
 
 ### 新增功能
+- **多模块项目支持**：自动检测多模块 Maven 项目，从根目录使用 `-pl :module -am` 解析子模块依赖；命令失败时自动回退到单模块模式
+- **已解析依赖列表**：新增 "Resolved Dependencies" 选项卡，扁平化展示所有已解析依赖；当 `dependency:list` 失败时自动使用 `dependency:tree` 数据回退
+- **Maven 路径配置**：新增 `mavenPomEditor.mavenPath` 设置项，支持手动指定 Maven 可执行文件路径
+- **VS Code 任务集成**：在任务面板中提供常用 Maven 命令（clean、compile、test、package、install 等），多模块项目自动使用 `-pl -am` 参数
 - **右键定位**：在 Dependency Hierarchy 中右键点击依赖，可直接在主编辑器中定位到对应 XML 节点
 - **左右联动交互**：点击左栏依赖树节点自动高亮右栏对应项；点击右栏依赖自动在左栏过滤并展开相关路径
+- **自动重试机制**：网络错误时自动指数退避重试（最多 3 次）；多模块命令失败时自动回退到单模块模式
 
 ### 优化改进
 - 移除搜索匹配的橙色高亮，保留绿色选中样式，界面更清爽

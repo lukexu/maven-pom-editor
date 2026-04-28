@@ -1,6 +1,6 @@
 (function() {
     const vscode = vscodeApi;
-    
+
     // Get references to DOM elements
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -19,7 +19,76 @@
     let isProcessingClick = false; // 防止快速连续点击
     let eventListenersAttached = false; // 防止重复绑定事件监听器
     let contextMenuTarget = null; // 右键菜单当前目标节点信息
-    
+
+    // i18n
+    const userLocale = typeof locale !== 'undefined' ? locale : 'en';
+    const isZh = userLocale.startsWith('zh');
+
+    function i18n(key) {
+        const dict = isZh ? zhDict : enDict;
+        return dict[key] || key;
+    }
+
+    const enDict = {
+        'loadingEffectivePom': 'Loading Effective POM...',
+        'loadingHint': 'This may take a few seconds',
+        'loadingDependencyInfo': 'Loading dependency information...',
+        'loadingDependencyList': 'Loading dependency list...',
+        'waitingForTree': 'Waiting for dependency tree...',
+        'errorEffectivePom': 'Failed to get Effective POM',
+        'errorDependencyTree': 'Failed to get dependency tree',
+        'errorResolvedList': 'Failed to get dependency list',
+        'retry': 'Retry',
+        'searchPlaceholder': 'Search dependencies (groupId:artifactId or keyword)...',
+        'clearSearch': 'Clear search',
+        'hideGroupId': 'Hide GroupId',
+        'showGroupId': 'Show GroupId',
+        'expandAll': 'Expand All',
+        'collapseAll': 'Collapse All',
+        'refresh': 'Refresh',
+        'loading': 'Loading...',
+        'noDependencies': 'No dependencies found',
+        'noMatches': 'No matching dependencies',
+        'moreNodes': '... more nodes (click refresh to view all)',
+        'locateInEditor': 'Locate in Editor',
+        'omittedConflict': 'conflict',
+        'omittedDuplicate': 'duplicate',
+        'omittedCycle': 'cycle',
+        'omittedManaged': 'managed',
+        'panelDependencyHierarchy': 'Dependency Hierarchy',
+        'panelResolvedDependencies': 'Resolved Dependencies',
+    };
+
+    const zhDict = {
+        'loadingEffectivePom': '正在获取 Effective POM...',
+        'loadingHint': '这可能需要几秒钟时间',
+        'loadingDependencyInfo': '正在获取依赖信息...',
+        'loadingDependencyList': '正在获取依赖列表...',
+        'waitingForTree': '等待依赖树加载完成...',
+        'errorEffectivePom': '无法获取 Effective POM',
+        'errorDependencyTree': '无法获取依赖树',
+        'errorResolvedList': '无法获取依赖列表',
+        'retry': '重试',
+        'searchPlaceholder': '搜索依赖 (groupId:artifactId 或关键字)...',
+        'clearSearch': '清除搜索',
+        'hideGroupId': '隐藏 GroupId',
+        'showGroupId': '显示 GroupId',
+        'expandAll': '展开所有',
+        'collapseAll': '折叠所有',
+        'refresh': '刷新',
+        'loading': '加载中...',
+        'noDependencies': '没有找到依赖',
+        'noMatches': '没有匹配的依赖',
+        'moreNodes': '... 更多节点 (点击刷新查看全部)',
+        'locateInEditor': '在编辑器中定位',
+        'omittedConflict': '冲突',
+        'omittedDuplicate': '重复',
+        'omittedCycle': '循环',
+        'omittedManaged': '托管',
+        'panelDependencyHierarchy': '依赖层级',
+        'panelResolvedDependencies': '已解析依赖',
+    };
+
     // Setup tab switching
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -27,7 +96,7 @@
             switchTab(tabId);
         });
     });
-    
+
     function switchTab(tabId) {
         // Update button states
         tabButtons.forEach(btn => {
@@ -37,7 +106,7 @@
                 btn.classList.remove('active');
             }
         });
-        
+
         // Update content visibility
         tabContents.forEach(content => {
             if (content.id === tabId) {
@@ -46,7 +115,7 @@
                 content.classList.remove('active');
             }
         });
-        
+
         // Handle tab-specific logic
         if (tabId === 'effective-pom') {
             // Load effective POM if not already loaded
@@ -81,8 +150,8 @@
         effectivePomContent.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <p>正在获取 Effective POM...</p>
-                <p class="loading-hint">这可能需要几秒钟时间</p>
+                <p>${i18n('loadingEffectivePom')}</p>
+                <p class="loading-hint">${i18n('loadingHint')}</p>
             </div>
         `;
 
@@ -142,9 +211,9 @@
         effectivePomContent.innerHTML = `
             <div class="error-container">
                 <div class="error-icon">⚠️</div>
-                <p class="error-title">无法获取 Effective POM</p>
+                <p class="error-title">${i18n('errorEffectivePom')}</p>
                 <p class="error-message">${errorMessage}</p>
-                <button class="retry-button" onclick="window.retryLoadEffectivePom()">重试</button>
+                <button class="retry-button" onclick="window.retryLoadEffectivePom()">${i18n('retry')}</button>
             </div>
         `;
     }
@@ -155,53 +224,77 @@
         loadEffectivePom();
     };
 
+    function getToolbarHtml() {
+        return `
+            <div class="dependency-toolbar">
+                <div class="search-container">
+                    <input type="text" id="dependency-search" class="search-input" placeholder="${i18n('searchPlaceholder')}" value="${escapeHtml(searchQuery)}" />
+                    <button class="clear-search-btn" id="clear-search" title="${i18n('clearSearch')}">✕</button>
+                </div>
+                <div class="toolbar-buttons">
+                    <button class="toolbar-btn" id="toggle-groupid" title="${showGroupId ? i18n('hideGroupId') : i18n('showGroupId')}">
+                        ${showGroupId ? i18n('hideGroupId') : i18n('showGroupId')}
+                    </button>
+                    <button class="toolbar-btn" id="expand-all" title="${i18n('expandAll')}">${i18n('expandAll')}</button>
+                    <button class="toolbar-btn" id="collapse-all" title="${i18n('collapseAll')}">${i18n('collapseAll')}</button>
+                    <button class="toolbar-btn" id="refresh-tree" title="${i18n('refresh')}">${i18n('refresh')}</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function getLeftPanelHtml() {
+        return `
+            <div class="left-panel">
+                <div class="panel-header">
+                    <span class="panel-title">${i18n('panelDependencyHierarchy')}</span>
+                </div>
+                <div id="dependency-tree-view">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p>${i18n('loadingDependencyInfo')}</p>
+                        <p class="loading-hint">${i18n('loadingHint')}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function getRightPanelHtml() {
+        return `
+            <div class="right-panel">
+                <div class="panel-header">
+                    <span class="panel-title">${i18n('panelResolvedDependencies')}</span>
+                    ${resolvedDependenciesData ? `<span class="dependency-count">${getFilteredResolvedCount()} / ${resolvedDependenciesData.length}</span>` : ''}
+                </div>
+                <div id="resolved-dependencies-view">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p>${i18n('waitingForTree')}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function getDualPanelHtml() {
+        return `
+            <div class="dual-panel-container">
+                ${getLeftPanelHtml()}
+                <div class="panel-divider"></div>
+                ${getRightPanelHtml()}
+            </div>
+        `;
+    }
+
     function loadDependencyTree(forceRefresh = false) {
         const dependencyHierarchyContent = document.getElementById('dependency-hierarchy');
 
         // 先渲染左栏的加载状态，右栏显示占位符
         dependencyHierarchyContent.innerHTML = `
             <div class="dependency-tree-container">
-                <div class="dependency-toolbar">
-                    <div class="search-container">
-                        <input type="text" id="dependency-search" class="search-input" placeholder="搜索依赖 (groupId:artifactId 或关键字)..." value="${escapeHtml(searchQuery)}" />
-                        <button class="clear-search-btn" id="clear-search" title="清除搜索">✕</button>
-                    </div>
-                    <div class="toolbar-buttons">
-                        <button class="toolbar-btn" id="toggle-groupid" title="${showGroupId ? '隐藏 GroupId' : '显示 GroupId'}">
-                            ${showGroupId ? '隐藏 GroupId' : '显示 GroupId'}
-                        </button>
-                        <button class="toolbar-btn" id="expand-all" title="展开所有">展开所有</button>
-                        <button class="toolbar-btn" id="collapse-all" title="折叠所有">折叠所有</button>
-                        <button class="toolbar-btn" id="refresh-tree" title="刷新">刷新</button>
-                    </div>
-                </div>
-                <div class="dual-panel-container">
-                    <div class="left-panel">
-                        <div class="panel-header">
-                            <span class="panel-title">Dependency Hierarchy</span>
-                        </div>
-                        <div id="dependency-tree-view">
-                            <div class="loading-container">
-                                <div class="loading-spinner"></div>
-                                <p>正在获取依赖信息...</p>
-                                <p class="loading-hint">这可能需要几秒钟时间</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="panel-divider"></div>
-                    <div class="right-panel">
-                        <div class="panel-header">
-                            <span class="panel-title">Resolved Dependencies</span>
-                            ${resolvedDependenciesData ? `<span class="dependency-count">${getFilteredResolvedCount()} / ${resolvedDependenciesData.length}</span>` : ''}
-                        </div>
-                        <div id="resolved-dependencies-view">
-                            <div class="loading-container">
-                                <div class="loading-spinner"></div>
-                                <p>等待依赖树加载完成...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                ${getToolbarHtml()}
+                ${getDualPanelHtml()}
             </div>
         `;
 
@@ -224,8 +317,8 @@
             resolvedView.innerHTML = `
                 <div class="loading-container">
                     <div class="loading-spinner"></div>
-                    <p>正在获取依赖列表...</p>
-                    <p class="loading-hint">这可能需要几秒钟时间</p>
+                    <p>${i18n('loadingDependencyList')}</p>
+                    <p class="loading-hint">${i18n('loadingHint')}</p>
                 </div>
             `;
         }
@@ -271,14 +364,14 @@
     function updateLeftPanel() {
         const leftPanelView = document.getElementById('dependency-tree-view');
         if (leftPanelView) {
-            leftPanelView.innerHTML = dependencyTreeData ? renderTreeNodes(dependencyTreeData, searchQuery) : '<div class="loading-container"><div class="loading-spinner"></div><p>加载中...</p></div>';
+            leftPanelView.innerHTML = dependencyTreeData ? renderTreeNodes(dependencyTreeData, searchQuery) : `<div class="loading-container"><div class="loading-spinner"></div><p>${i18n('loading')}</p></div>`;
         }
     }
 
     function updateRightPanel() {
         const rightPanelView = document.getElementById('resolved-dependencies-view');
         if (rightPanelView) {
-            rightPanelView.innerHTML = resolvedDependenciesData ? renderResolvedList(resolvedDependenciesData, searchQuery) : '<div class="loading-container"><div class="loading-spinner"></div><p>加载中...</p></div>';
+            rightPanelView.innerHTML = resolvedDependenciesData ? renderResolvedList(resolvedDependenciesData, searchQuery) : `<div class="loading-container"><div class="loading-spinner"></div><p>${i18n('loading')}</p></div>`;
         }
 
         // 更新右栏标题中的依赖数量
@@ -302,37 +395,24 @@
         // Create container with search and dual panel layout
         dependencyHierarchyContent.innerHTML = `
             <div class="dependency-tree-container">
-                <div class="dependency-toolbar">
-                    <div class="search-container">
-                        <input type="text" id="dependency-search" class="search-input" placeholder="搜索依赖 (groupId:artifactId 或关键字)..." value="${escapeHtml(searchQuery)}" />
-                        <button class="clear-search-btn" id="clear-search" title="清除搜索">✕</button>
-                    </div>
-                    <div class="toolbar-buttons">
-                        <button class="toolbar-btn" id="toggle-groupid" title="${showGroupId ? '隐藏 GroupId' : '显示 GroupId'}">
-                            ${showGroupId ? '隐藏 GroupId' : '显示 GroupId'}
-                        </button>
-                        <button class="toolbar-btn" id="expand-all" title="展开所有">展开所有</button>
-                        <button class="toolbar-btn" id="collapse-all" title="折叠所有">折叠所有</button>
-                        <button class="toolbar-btn" id="refresh-tree" title="刷新">刷新</button>
-                    </div>
-                </div>
+                ${getToolbarHtml()}
                 <div class="dual-panel-container">
                     <div class="left-panel">
                         <div class="panel-header">
-                            <span class="panel-title">Dependency Hierarchy</span>
+                            <span class="panel-title">${i18n('panelDependencyHierarchy')}</span>
                         </div>
                         <div id="dependency-tree-view">
-                            ${dependencyTreeData ? renderTreeNodes(dependencyTreeData, searchQuery) : '<div class="loading-container"><div class="loading-spinner"></div><p>加载中...</p></div>'}
+                            ${dependencyTreeData ? renderTreeNodes(dependencyTreeData, searchQuery) : `<div class="loading-container"><div class="loading-spinner"></div><p>${i18n('loading')}</p></div>`}
                         </div>
                     </div>
                     <div class="panel-divider"></div>
                     <div class="right-panel">
                         <div class="panel-header">
-                            <span class="panel-title">Resolved Dependencies</span>
+                            <span class="panel-title">${i18n('panelResolvedDependencies')}</span>
                             ${resolvedDependenciesData ? `<span class="dependency-count">${getFilteredResolvedCount()} / ${resolvedDependenciesData.length}</span>` : ''}
                         </div>
                         <div id="resolved-dependencies-view">
-                            ${resolvedDependenciesData ? renderResolvedList(resolvedDependenciesData, searchQuery) : '<div class="loading-container"><div class="loading-spinner"></div><p>加载中...</p></div>'}
+                            ${resolvedDependenciesData ? renderResolvedList(resolvedDependenciesData, searchQuery) : `<div class="loading-container"><div class="loading-spinner"></div><p>${i18n('loading')}</p></div>`}
                         </div>
                     </div>
                 </div>
@@ -354,7 +434,7 @@
 
     function renderTreeNodes(nodes, query) {
         if (!nodes || nodes.length === 0) {
-            return '<div class="empty-tree">没有找到依赖</div>';
+            return `<div class="empty-tree">${i18n('noDependencies')}</div>`;
         }
 
         let html = '<ul class="tree-root">';
@@ -367,7 +447,7 @@
                 html += nodeHtml;
                 nodeCount++;
                 if (nodeCount >= maxNodes) {
-                    html += '<li class="tree-node"><div class="node-content"><span class="node-info">... 更多节点 (点击刷新查看全部)</span></div></li>';
+                    html += `<li class="tree-node"><div class="node-content"><span class="node-info">${i18n('moreNodes')}</span></div></li>`;
                     break;
                 }
             }
@@ -376,7 +456,7 @@
 
         // 如果过滤后没有任何节点，显示提示
         if (html === '<ul class="tree-root"></ul>') {
-            return '<div class="empty-tree">没有找到依赖</div>';
+            return `<div class="empty-tree">${i18n('noDependencies')}</div>`;
         }
 
         return html;
@@ -415,13 +495,7 @@
         let omittedLabel = '';
         if (node.omittedReason) {
             omittedClass = `omitted-${node.omittedReason}`;
-            const omittedLabels = {
-                'conflict': '冲突',
-                'duplicate': '重复',
-                'cycle': '循环',
-                'managed': '托管'
-            };
-            omittedLabel = `<span class="omitted-label">${omittedLabels[node.omittedReason] || node.omittedReason}</span>`;
+            omittedLabel = `<span class="omitted-label">${i18n('omitted' + node.omittedReason.charAt(0).toUpperCase() + node.omittedReason.slice(1)) || node.omittedReason}</span>`;
             // 调试输出
             if (level === 1) { // 只输出第一层子节点，避免日志过多
                 console.log(`发现省略的依赖: ${node.artifactId}, 原因: ${node.omittedReason}, CSS类: ${omittedClass}`);
@@ -453,7 +527,7 @@
 
     function renderResolvedList(dependencies, query) {
         if (!dependencies || dependencies.length === 0) {
-            return '<div class="empty-resolved-list">没有找到依赖</div>';
+            return `<div class="empty-resolved-list">${i18n('noDependencies')}</div>`;
         }
 
         // Filter dependencies based on search query
@@ -462,7 +536,7 @@
             : dependencies;
 
         if (filteredDeps.length === 0) {
-            return '<div class="empty-resolved-list">没有匹配的依赖</div>';
+            return `<div class="empty-resolved-list">${i18n('noMatches')}</div>`;
         }
 
         let html = '<ul class="resolved-list">';
@@ -653,8 +727,8 @@
         if (toggleGroupIdBtn) {
             toggleGroupIdBtn.addEventListener('click', () => {
                 showGroupId = !showGroupId;
-                toggleGroupIdBtn.textContent = showGroupId ? '隐藏 GroupId' : '显示 GroupId';
-                toggleGroupIdBtn.title = showGroupId ? '隐藏 GroupId' : '显示 GroupId';
+                toggleGroupIdBtn.textContent = showGroupId ? i18n('hideGroupId') : i18n('showGroupId');
+                toggleGroupIdBtn.title = showGroupId ? i18n('hideGroupId') : i18n('showGroupId');
                 updateLeftPanel();
                 updateRightPanel();
             });
@@ -903,9 +977,9 @@
         dependencyHierarchyContent.innerHTML = `
             <div class="error-container">
                 <div class="error-icon">⚠️</div>
-                <p class="error-title">无法获取依赖树</p>
+                <p class="error-title">${i18n('errorDependencyTree')}</p>
                 <p class="error-message">${errorMessage}</p>
-                <button class="retry-button" onclick="window.retryLoadDependencyTree()">重试</button>
+                <button class="retry-button" onclick="window.retryLoadDependencyTree()">${i18n('retry')}</button>
             </div>
         `;
     }
@@ -1022,9 +1096,9 @@
             resolvedView.innerHTML = `
                 <div class="error-container">
                     <div class="error-icon">⚠️</div>
-                    <p class="error-title">无法获取依赖列表</p>
+                    <p class="error-title">${i18n('errorResolvedList')}</p>
                     <p class="error-message">${errorMessage}</p>
-                    <button class="retry-button" onclick="window.retryLoadResolvedDependencies()">重试</button>
+                    <button class="retry-button" onclick="window.retryLoadResolvedDependencies()">${i18n('retry')}</button>
                 </div>
             `;
         }
@@ -1046,7 +1120,7 @@
     // Listen for messages from the extension
     window.addEventListener('message', event => {
         const message = event.data;
-        
+
         switch (message.type) {
             case 'effectivePomResult':
                 initializeEffectivePomEditor(message.content);
@@ -1085,11 +1159,10 @@
                 break;
         }
     });
-    
+
     // Log that the webview is ready
     vscode.postMessage({
         type: 'log',
         content: 'Maven POM Editor webview is ready'
     });
 })();
-

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { PomViewProvider } from './pomEditorProvider';
 import { CacheManager } from './cacheManager';
 import { MavenTaskProvider } from './mavenTaskProvider';
+import { t } from './i18n';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Maven POM Editor extension is now active');
@@ -16,13 +17,13 @@ export function activate(context: vscode.ExtensionContext) {
     const openPomViewCommand = vscode.commands.registerCommand('mavenPomEditor.openPomView', () => {
         const activeEditor = vscode.window.activeTextEditor;
         if (!activeEditor) {
-            vscode.window.showWarningMessage('请先打开一个 pom.xml 文件');
+            vscode.window.showWarningMessage(t('msg.openPomFirst'));
             return;
         }
 
         const document = activeEditor.document;
         if (!document.fileName.endsWith('pom.xml')) {
-            vscode.window.showWarningMessage('当前文件不是 pom.xml');
+            vscode.window.showWarningMessage(t('msg.notPomFile'));
             return;
         }
 
@@ -37,39 +38,32 @@ export function activate(context: vscode.ExtensionContext) {
         taskProvider
     );
     context.subscriptions.push(taskProviderRegistration);
-    console.log('Maven Task Provider 已注册');
 
-    // 监听 POM 文件保存事件，自动清除缓存
+    // Listen for POM file save events to auto-clear cache
     const fileWatcher = vscode.workspace.onDidSaveTextDocument(async (document) => {
         if (document.fileName.endsWith('pom.xml')) {
-            console.log(`[Extension] POM 文件已保存，清除缓存: ${document.fileName}`);
             await cacheManager.invalidate(document.uri.fsPath);
-            vscode.window.showInformationMessage('POM 文件已更新，缓存已清除');
+            vscode.window.showInformationMessage(t('msg.cacheCleared'));
         }
     });
     context.subscriptions.push(fileWatcher);
 
-    // 注册清除所有缓存的命令
+    // Register clear all cache command
     const clearCacheCommand = vscode.commands.registerCommand('mavenPomEditor.clearCache', async () => {
         await cacheManager.clearAll();
-        vscode.window.showInformationMessage('已清除所有 Maven 依赖缓存');
+        vscode.window.showInformationMessage(t('msg.allCacheCleared'));
     });
     context.subscriptions.push(clearCacheCommand);
 
-    // 注册查看缓存统计信息的命令
+    // Register show cache stats command
     const showCacheStatsCommand = vscode.commands.registerCommand('mavenPomEditor.showCacheStats', async () => {
         const stats = await cacheManager.getStats();
-        const message = `缓存统计:\n` +
-            `• 内存缓存: ${stats.memoryCount} 项\n` +
-            `• WorkspaceState: ${stats.workspaceStateCount} 项\n` +
-            `• 文件缓存: ${stats.fileCount} 项`;
+        const message = t('msg.cacheStats', stats.memoryCount, stats.workspaceStateCount, stats.fileCount);
         vscode.window.showInformationMessage(message);
     });
     context.subscriptions.push(showCacheStatsCommand);
 
-    console.log('Maven POM Editor 缓存管理已启用');
-    
-    // 启动后台预加载机制
+    // Start background preload
     scheduleBackgroundPreload(context, cacheManager);
 }
 
@@ -77,42 +71,20 @@ export function deactivate() {
     console.log('Maven POM Editor extension is now deactivated');
 }
 
-/**
- * 延迟启动后台预加载，避免阻塞扩展激活
- * @param context 扩展上下文
- * @param cacheManager 缓存管理器
- */
 function scheduleBackgroundPreload(context: vscode.ExtensionContext, cacheManager: CacheManager): void {
     setTimeout(() => {
         preloadMavenData(context, cacheManager);
-    }, 2000); // 延迟2秒，让 VS Code 完全启动
+    }, 2000);
 }
 
-/**
- * 后台预加载 Maven 数据
- * @param context 扩展上下文
- * @param cacheManager 缓存管理器
- */
 async function preloadMavenData(context: vscode.ExtensionContext, cacheManager: CacheManager): Promise<void> {
     try {
-        console.log('[Extension] 开始后台预加载 Maven 数据...');
-        
-        // 检测工作区中的 POM 文件
         const pomFiles = await vscode.workspace.findFiles('**/pom.xml', '**/node_modules/**', 3);
-        
         if (pomFiles.length === 0) {
-            console.log('[Extension] 未找到 POM 文件，跳过预加载');
             return;
         }
-        
-        console.log(`[Extension] 找到 ${pomFiles.length} 个 POM 文件`);
-        
-        // 使用智能缓存预热
         await cacheManager.smartWarmup(context);
-        
-        console.log('[Extension] 后台预加载完成');
     } catch (error) {
-        // 静默处理错误，不影响用户体验
-        console.warn('[Extension] 后台预加载失败:', error);
+        console.warn('[Extension] Background preload failed:', error);
     }
 }

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { MavenUtils } from './mavenUtils';
 import { CacheManager } from './cacheManager';
+import { t, getLocale } from './i18n';
 
 export class PomViewProvider {
 
@@ -29,14 +30,14 @@ export class PomViewProvider {
         try {
             pomContent = fs.readFileSync(pomPath, 'utf-8');
         } catch (error) {
-            vscode.window.showErrorMessage(`无法读取 POM 文件: ${pomPath}`);
+            vscode.window.showErrorMessage(t('error.readPomFailed', pomPath));
             return;
         }
 
         // 创建 WebviewPanel
         const panel = vscode.window.createWebviewPanel(
             'mavenPomEditor.view',
-            `Maven POM: ${path.basename(path.dirname(pomPath))}`,
+            t('ui.panelTitle', path.basename(path.dirname(pomPath))),
             vscode.ViewColumn.Beside,
             {
                 enableScripts: true,
@@ -107,12 +108,13 @@ export class PomViewProvider {
     </div>
 
     <div id="context-menu" class="context-menu">
-        <div class="context-menu-item" id="context-menu-locate">在编辑器中定位</div>
+        <div class="context-menu-item" id="context-menu-locate">${t('ui.locateInEditor')}</div>
     </div>
 
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
         const initialContent = ${JSON.stringify(pomContent)};
+        const locale = '${getLocale()}';
     </script>
     <script nonce="${nonce}" src="${monacoLoaderUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
@@ -158,17 +160,17 @@ export class PomViewProvider {
             'effectivePom',
             forceRefresh,
             async (pomPath: string) => {
-                await this.reportProgress(panel, 'effectivePom', 1, '检查 Maven 环境');
-                const mavenAvailable = await MavenUtils.isMavenAvailable();
+                await this.reportProgress(panel, 'effectivePom', 1, t('progress.checkMaven'));
+                const mavenAvailable = await MavenUtils.isMavenAvailable(pomPath);
                 if (!mavenAvailable) {
-                    throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
+                    throw new Error(t('error.mavenNotFoundWithWrapper'));
                 }
 
-                await this.reportProgress(panel, 'effectivePom', 2, '解析依赖关系');
-                await this.reportProgress(panel, 'effectivePom', 3, '生成 Effective POM');
+                await this.reportProgress(panel, 'effectivePom', 2, t('progress.resolveDependencies'));
+                await this.reportProgress(panel, 'effectivePom', 3, t('progress.generateEffectivePom'));
                 const effectivePom = await MavenUtils.getEffectivePom(pomPath);
 
-                await this.reportProgress(panel, 'effectivePom', 4, '处理结果');
+                await this.reportProgress(panel, 'effectivePom', 4, t('progress.processResult'));
 
                 return effectivePom;
             }
@@ -186,17 +188,17 @@ export class PomViewProvider {
             'dependencyTree',
             forceRefresh,
             async (pomPath: string) => {
-                await this.reportProgress(panel, 'dependencyTree', 1, '检查 Maven 环境');
-                const mavenAvailable = await MavenUtils.isMavenAvailable();
+                await this.reportProgress(panel, 'dependencyTree', 1, t('progress.checkMaven'));
+                const mavenAvailable = await MavenUtils.isMavenAvailable(pomPath);
                 if (!mavenAvailable) {
-                    throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
+                    throw new Error(t('error.mavenNotFoundWithWrapper'));
                 }
 
-                await this.reportProgress(panel, 'dependencyTree', 2, '解析依赖关系');
-                await this.reportProgress(panel, 'dependencyTree', 3, '生成依赖树');
+                await this.reportProgress(panel, 'dependencyTree', 2, t('progress.resolveDependencies'));
+                await this.reportProgress(panel, 'dependencyTree', 3, t('progress.generateDependencyTree'));
                 const treeText = await MavenUtils.getDependencyTree(pomPath);
 
-                await this.reportProgress(panel, 'dependencyTree', 4, '处理结果');
+                await this.reportProgress(panel, 'dependencyTree', 4, t('progress.processResult'));
                 const treeData = MavenUtils.parseDependencyTree(treeText);
 
                 return treeData;
@@ -215,17 +217,17 @@ export class PomViewProvider {
             'resolvedDependencies',
             forceRefresh,
             async (pomPath: string) => {
-                await this.reportProgress(panel, 'resolvedDependencies', 1, '检查 Maven 环境');
-                const mavenAvailable = await MavenUtils.isMavenAvailable();
+                await this.reportProgress(panel, 'resolvedDependencies', 1, t('progress.checkMaven'));
+                const mavenAvailable = await MavenUtils.isMavenAvailable(pomPath);
                 if (!mavenAvailable) {
-                    throw new Error('Maven 未安装或未添加到 PATH 中。请安装 Maven 后重试。');
+                    throw new Error(t('error.mavenNotFoundWithWrapper'));
                 }
 
-                await this.reportProgress(panel, 'resolvedDependencies', 2, '解析依赖关系');
-                await this.reportProgress(panel, 'resolvedDependencies', 3, '生成依赖列表');
+                await this.reportProgress(panel, 'resolvedDependencies', 2, t('progress.resolveDependencies'));
+                await this.reportProgress(panel, 'resolvedDependencies', 3, t('progress.generateDependencyList'));
                 const listText = await MavenUtils.getResolvedDependencies(pomPath);
 
-                await this.reportProgress(panel, 'resolvedDependencies', 4, '处理结果');
+                await this.reportProgress(panel, 'resolvedDependencies', 4, t('progress.processResult'));
                 const dependencies = MavenUtils.parseResolvedDependencies(listText);
 
                 return dependencies;
@@ -268,7 +270,22 @@ export class PomViewProvider {
             });
         } catch (error: any) {
             console.error(`获取 ${cacheKey} 失败:`, error);
-            this.showError(panel, cacheKey, error.message || `获取 ${cacheKey} 失败`);
+            const errorMessage = error.message || t('error.generic', cacheKey);
+            this.showError(panel, cacheKey, errorMessage);
+
+            // 如果是 Maven 未找到的错误，提供配置指引
+            if (errorMessage.includes(t('error.mavenNotFoundWithWrapper'))) {
+                const result = await vscode.window.showErrorMessage(
+                    errorMessage,
+                    t('msg.configureMavenPath')
+                );
+                if (result === t('msg.configureMavenPath')) {
+                    vscode.commands.executeCommand(
+                        'workbench.action.openSettings',
+                        'mavenPomEditor.mavenPath'
+                    );
+                }
+            }
         }
     }
 
@@ -393,11 +410,11 @@ export class PomViewProvider {
                 editor.revealRange(bestRange, vscode.TextEditorRevealType.InCenter);
                 editor.selection = new vscode.Selection(bestRange.start, bestRange.start);
             } else {
-                vscode.window.showInformationMessage(`未在 POM 文件中找到依赖: ${groupId}:${artifactId}`);
+                vscode.window.showInformationMessage(t('error.notFoundInPom', groupId, artifactId));
             }
         } catch (error: any) {
             console.error('定位到编辑器失败:', error);
-            vscode.window.showErrorMessage(`定位失败: ${error.message}`);
+            vscode.window.showErrorMessage(t('error.locateFailed', error.message));
         }
     }
 

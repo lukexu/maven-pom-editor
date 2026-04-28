@@ -45,16 +45,16 @@
     "commands": [
       {
         "command": "mavenPomEditor.openPomView",
-        "title": "Open Maven POM View",
+        "title": "%command.openPomView.title%",
         "icon": "$(extensions)"
       },
       {
         "command": "mavenPomEditor.clearCache",
-        "title": "Maven POM Editor: Clear All Cache"
+        "title": "%command.clearCache.title%"
       },
       {
         "command": "mavenPomEditor.showCacheStats",
-        "title": "Maven POM Editor: Show Cache Statistics"
+        "title": "%command.showCacheStats.title%"
       }
     ],
     "menus": {
@@ -72,6 +72,16 @@
           "group": "2_workspace@5"
         }
       ]
+    },
+    "configuration": {
+      "title": "Maven POM Editor",
+      "properties": {
+        "mavenPomEditor.mavenPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Maven executable (e.g. /opt/homebrew/bin/mvn). Leave empty to auto-detect via Maven Wrapper or PATH."
+        }
+      }
     },
     "taskDefinitions": [
       {

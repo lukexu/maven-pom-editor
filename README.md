@@ -1,132 +1,162 @@
 # Maven POM Editor
 
+English | [中文](README.zh.md)
+
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=Bokix.maven-pom-editor)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-一个 VS Code 扩展，专为 Maven 项目的 POM 文件提供可视化编辑和依赖管理功能。通过直观的界面查看依赖层次结构、快速排除冲突依赖，让 Maven 依赖管理变得简单高效。
+A VS Code extension that provides visual editing and dependency management for POM files in Maven projects. View dependency hierarchies through an intuitive interface, quickly exclude conflicting dependencies, and make Maven dependency management simple and efficient.
 
-## ✨ 功能特性
+## ✨ Features
 
-### 🔍 依赖管理
-- **依赖层次可视化**: 树形展示项目的所有依赖关系及其传递依赖
-- **依赖过滤**: 快速搜索和筛选特定的依赖项，支持 groupId、artifactId 和 version 搜索
-- **冲突检测**: 自动识别并标记版本冲突、重复和循环依赖
-- **左右联动**: 点击依赖树节点自动定位到已解析依赖列表，反之亦然
+### 🔍 Dependency Management
+- **Dependency Hierarchy Visualization**: Tree view of all project dependencies and their transitive dependencies
+- **Resolved Dependencies List**: Flat list of all resolved dependencies for quick version and scope inspection
+- **Dependency Filtering**: Quickly search and filter specific dependencies by groupId, artifactId, or version
+- **Conflict Detection**: Automatically identifies and marks version conflicts, duplicates, and circular dependencies
+- **Bidirectional Linking**: Click a dependency tree node to automatically locate it in the resolved dependencies list, and vice versa
+- **Multi-module Project Support**: Automatically detects multi-module Maven projects and uses `-pl :module -am` to correctly resolve submodule dependencies from the root directory
 
-### 🎨 POM 辅助视图
-- **Effective POM 查看**: 查看 Maven 解析后的完整配置，理解继承和属性替换的最终结果
-- **编辑器集成**: 在 VS Code 原生编辑器中编辑 POM，保留所有语言功能和扩展支持
-- **右键定位**: 在依赖视图中右键点击依赖，可直接在主编辑器中定位到对应 XML 节点
+### 🎨 POM Auxiliary View
+- **Effective POM Viewer**: View the complete configuration after Maven resolution to understand the final result of inheritance and property substitution
+- **Editor Integration**: Edit POM files in the native VS Code editor with all language features and extension support
+- **Right-click Navigation**: Right-click a dependency in the dependency view to directly locate the corresponding XML node in the main editor
 
-### 🚀 用户体验
-- **工具栏按钮**: 打开 `pom.xml` 后，点击编辑器右上角按钮即可打开辅助视图
-- **选项卡切换**: 在 "Effective POM" 和 "Dependency Hierarchy" 视图之间无缝切换
-- **响应式界面**: 自适应布局，支持不同窗口大小
-- **智能缓存**: Maven 命令结果缓存，避免重复解析，支持手动刷新
+### 🚀 User Experience
+- **Toolbar Button**: After opening a `pom.xml` file, click the button in the top-right corner of the editor to open the auxiliary view
+- **Tab Switching**: Seamlessly switch between "Effective POM", "Dependency Hierarchy", and "Resolved Dependencies" views
+- **Responsive Interface**: Adaptive layout supporting different window sizes
+- **Smart Caching**: Maven command result caching to avoid repeated parsing, with manual refresh support
+- **Auto Retry**: Automatic exponential backoff retry on network errors; automatic fallback to single-module mode when multi-module commands fail
+- **VS Code Task Integration**: Provides common Maven commands (clean, compile, test, package, install, etc.) in the VS Code Tasks panel, with multi-module project support
 
-## 📸 功能展示
+## 📸 Feature Showcase
 
-### 依赖层次可视化
-![依赖层次结构](images/dependency-hierarchy.png)
-*树形展示项目的所有依赖关系及其传递依赖，直观了解依赖结构*
+### Dependency Hierarchy Visualization
+![Dependency Hierarchy](images/dependency-hierarchy.png)
+*Tree view of all project dependencies and their transitive dependencies for an intuitive understanding of the dependency structure*
 
-### 依赖搜索与过滤
-![依赖搜索功能](images/dependency-search.png)
-*快速搜索和定位特定的依赖项，支持实时过滤*
+### Dependency Search and Filtering
+![Dependency Search](images/dependency-search.png)
+*Quickly search and locate specific dependencies with real-time filtering*
 
-## 📦 安装
+## 📦 Installation
 
-### 从 Marketplace 安装
-1. 打开 VS Code
-2. 按 `Ctrl+Shift+X` (Windows/Linux) 或 `Cmd+Shift+X` (macOS) 打开扩展面板
-3. 搜索 "Maven POM Editor"
-4. 点击 "安装"
+### Install from Marketplace
+1. Open VS Code
+2. Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS) to open the Extensions panel
+3. Search for "Maven POM Editor"
+4. Click "Install"
 
-### 从 VSIX 文件安装
+### Install from VSIX File
 ```bash
 code --install-extension maven-pom-editor-0.1.0.vsix
 ```
 
-## 🎯 使用方法
+## 🎯 Usage
 
-### 打开 POM 辅助视图
-1. 在项目中打开任意 `pom.xml` 文件
-2. 点击编辑器右上角的 **"Open Maven POM View"** 按钮（方块图标）
-3. 或使用编辑器右键菜单中的 **"Open Maven POM View"**
-4. 右侧会打开辅助面板，包含 "Effective POM" 和 "Dependency Hierarchy" 两个标签页
+### Open the POM Auxiliary View
+1. Open any `pom.xml` file in your project
+2. Click the **"Open Maven POM View"** button (square icon) in the top-right corner of the editor
+3. Or use **"Open Maven POM View"** from the editor's right-click context menu
+4. The auxiliary panel will open on the right side, containing three tabs: "Effective POM", "Dependency Hierarchy", and "Resolved Dependencies"
 
-### 功能使用
+### Feature Usage
 
-#### 查看依赖树
-1. 打开 POM 辅助视图后，点击 "Dependency Hierarchy" 选项卡
-2. 展开依赖节点查看传递依赖
-3. 使用顶部搜索框过滤特定依赖
-4. 点击左栏树节点，右栏会自动高亮对应依赖；点击右栏依赖，左栏会过滤显示相关路径
+#### View Dependency Tree
+1. After opening the POM auxiliary view, click the "Dependency Hierarchy" tab
+2. Expand dependency nodes to view transitive dependencies
+3. Use the search box at the top to filter specific dependencies
+4. Click a node in the left panel tree to automatically highlight the corresponding dependency in the right panel; click a dependency in the right panel to filter and display related paths in the left panel
 
-#### 在编辑器中定位依赖
-1. 在依赖树或已解析依赖列表中右键点击某个依赖
-2. 选择 "在编辑器中定位"
-3. 主编辑器会自动滚动并定位到该依赖在 `pom.xml` 中的位置
+#### Locate a Dependency in the Editor
+1. Right-click a dependency in the dependency tree or resolved dependencies list
+2. Select "Locate in Editor"
+3. The main editor will automatically scroll and locate the dependency's position in the `pom.xml`
 
-#### 查看 Effective POM
-1. 点击 "Effective POM" 选项卡
-2. 查看 Maven 解析后的完整配置
-3. 支持语法高亮和代码折叠
+#### View Resolved Dependencies List
+1. Click the "Resolved Dependencies" tab
+2. View all resolved dependencies, including groupId, artifactId, version, and scope
+3. If sibling modules have not been built, the extension will automatically fall back to dependency tree data to ensure the list is always available
 
-## 📋 系统要求
+#### View Effective POM
+1. Click the "Effective POM" tab
+2. View the complete configuration after Maven resolution
+3. Supports syntax highlighting and code folding
 
-### 必需
-- **VS Code**: 1.80.0 或更高版本
-- **Maven**: 本地安装 Maven 3.x 或更高版本（用于解析依赖信息）
-- **操作系统**: Windows、macOS 或 Linux
+#### Run Maven Tasks
+1. Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the Command Palette
+2. Type and select **"Tasks: Run Task"**
+3. Select a task starting with `Maven:`, such as `Maven: clean install (module-name)`
+4. For multi-module projects, the `-pl :module -am` parameters will be automatically used to correctly build the required modules from the root directory
 
-### 推荐
-- **Java**: JDK 8 或更高版本（Maven 运行所需）
-- 将 Maven 添加到系统 PATH 环境变量
+## 📋 System Requirements
 
-## ⚙️ 配置
+### Required
+- **VS Code**: 1.80.0 or higher
+- **Maven**: Local Maven 3.x or higher installation (used for resolving dependency information)
+- **Operating System**: Windows, macOS, or Linux
 
-暂无需额外配置，扩展会自动检测系统中的 Maven 安装。
+### Recommended
+- **Java**: JDK 8 or higher (required for Maven to run)
+- Add Maven to your system PATH environment variable
 
-## 🐛 已知问题
+## ⚙️ Configuration
 
-- 对于非常大的项目（超过 1000 个依赖），依赖树加载可能需要较长时间
-- 在某些情况下，Maven 命令执行可能因权限问题失败
-- 当前版本不支持多模块项目的聚合视图
+The extension automatically detects your Maven installation (priority order: configured path → Maven Wrapper → common installation paths → system PATH). To manually specify the Maven path, configure it in VS Code settings:
 
-如发现其他问题，请在 [GitHub Issues](https://github.com/bokix/maven-pom-editor.git/issues) 中报告。
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `mavenPomEditor.mavenPath` | `string` | `""` | Absolute path to the Maven executable, e.g., `/opt/homebrew/bin/mvn`. Leave empty for automatic detection. |
 
-## 🔄 版本历史
+### Configuration Example
 
-查看 [CHANGELOG.md](CHANGELOG.md) 了解详细的版本变更历史。
+Add to `settings.json`:
 
-## 🤝 贡献
+```json
+{
+  "mavenPomEditor.mavenPath": "/opt/homebrew/bin/mvn"
+}
+```
 
-欢迎贡献代码、报告问题或提出建议！
+## 🐛 Known Issues
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+- For very large projects (over 1000 dependencies), dependency tree loading may take longer
+- In some cases, Maven command execution may fail due to permission issues
+- In multi-module projects, if sibling module dependencies have not yet been built to the local repository, the `Resolved Dependencies` page will fall back to `Dependency Hierarchy` data, which may differ slightly from the true resolved dependencies list
 
-## 📄 许可证
+If you encounter other issues, please report them on [GitHub Issues](https://github.com/bokix/maven-pom-editor.git/issues).
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+## 🔄 Version History
 
-## 🙏 致谢
+See [CHANGELOG.md](CHANGELOG.md) for detailed version change history.
 
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - 强大的代码编辑器
-- [VS Code Extension API](https://code.visualstudio.com/api) - 扩展开发框架
-- [Maven](https://maven.apache.org/) - 项目依赖管理工具
+## 🤝 Contributing
 
-## 📞 支持
+Contributions, issue reports, and suggestions are welcome!
 
-- 🐛 [报告问题](https://github.com/bokix/maven-pom-editor.git/issues)
-- 💬 [讨论区](https://github.com/bokix/maven-pom-editor.git/discussions)
-- 📧 联系邮箱: bokix.sun@gmail.com
+1. Fork this repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Powerful code editor
+- [VS Code Extension API](https://code.visualstudio.com/api) - Extension development framework
+- [Maven](https://maven.apache.org/) - Project dependency management tool
+
+## 📞 Support
+
+- 🐛 [Report Issues](https://github.com/bokix/maven-pom-editor.git/issues)
+- 💬 [Discussions](https://github.com/bokix/maven-pom-editor.git/discussions)
+- 📧 Contact: bokix.sun@gmail.com
 
 ---
 
-**享受使用 Maven POM Editor！** 如果觉得有用，请在 [Marketplace](https://marketplace.visualstudio.com/items?itemName=Bokix.maven-pom-editor) 上给我们⭐️评分！
-
+**Enjoy using Maven POM Editor!** If you find it helpful, please give us a ⭐️ rating on the [Marketplace](https://marketplace.visualstudio.com/items?itemName=Bokix.maven-pom-editor)!

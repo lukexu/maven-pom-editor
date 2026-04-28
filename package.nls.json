@@ -1,0 +1,7 @@
+{
+  "extension.displayName": "Maven POM Editor",
+  "extension.description": "Advanced Maven POM editor with dependency hierarchy visualization",
+  "command.openPomView.title": "Open Maven POM View",
+  "command.clearCache.title": "Maven POM Editor: Clear All Cache",
+  "command.showCacheStats.title": "Maven POM Editor: Show Cache Statistics"
+}
