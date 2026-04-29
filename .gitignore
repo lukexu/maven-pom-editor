@@ -15,6 +15,7 @@ dist/
 # 排除所有 .md 文件，但保留 README.md 和 CHANGELOG.md
 *.md
 !README.md
+!README.zh.md
 !CHANGELOG.md
 
 # VS Code settings (keep some, ignore others)
