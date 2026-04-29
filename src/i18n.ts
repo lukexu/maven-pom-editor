@@ -73,6 +73,7 @@ const translations: Record<Locale, Record<string, string>> = {
         'task.dependencyList': 'List dependencies',
 
         // Webview UI (passed to frontend)
+        'ui.panelTitle': 'POM: {0}',
         'ui.effectivePom': 'Effective POM',
         'ui.dependencyHierarchy': 'Dependency Hierarchy',
         'ui.loadingEffectivePom': 'Loading Effective POM...',
@@ -149,6 +150,7 @@ const translations: Record<Locale, Record<string, string>> = {
         'task.dependencyList': '列出依赖',
 
         // Webview UI
+        'ui.panelTitle': 'POM: {0}',
         'ui.effectivePom': 'Effective POM',
         'ui.dependencyHierarchy': 'Dependency Hierarchy',
         'ui.loadingEffectivePom': '正在获取 Effective POM...',
